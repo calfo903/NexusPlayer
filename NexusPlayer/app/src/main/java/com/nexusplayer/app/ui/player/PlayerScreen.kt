@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -60,10 +61,12 @@ import androidx.media3.ui.PlayerView
 import com.nexusplayer.app.domain.model.AspectRatioMode
 import com.nexusplayer.app.domain.model.VideoItem
 import com.nexusplayer.app.player.engine.NexusVideoPlayer
+import com.nexusplayer.app.player.gestures.GestureOverlay
 import com.nexusplayer.app.player.whisper.WhisperSubtitleGenerator
 import com.nexusplayer.app.util.AutoNextEpisodeDetector
 import com.nexusplayer.app.util.ScreenshotHelper
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -346,9 +349,11 @@ fun PlayerScreen(
                 Spacer(modifier = Modifier.width(14.dp))
                 Button(
                     onClick = {
-                        nextEpisodeCountdown = null
-                        AutoNextEpisodeDetector.findNextEpisode(context, videoItem)?.let { nextItem ->
-                            onPlayNextEpisode(nextItem)
+                        scope.launch {
+                            nextEpisodeCountdown = null
+                            AutoNextEpisodeDetector.findNextEpisode(context, videoItem)?.let { nextItem ->
+                                onPlayNextEpisode(nextItem)
+                            }
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6)),

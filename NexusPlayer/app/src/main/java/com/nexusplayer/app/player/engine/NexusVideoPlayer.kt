@@ -21,7 +21,6 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.SeekParameters
-import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.extractor.DefaultExtractorsFactory
@@ -130,7 +129,6 @@ class NexusVideoPlayer(
 
         val extractorsFactory = DefaultExtractorsFactory().apply {
             setConstantBitrateSeekingEnabled(true)
-            setMp4ExtractorFlags(DefaultExtractorsFactory.FLAG_CONSTANT_BITRATE_SEEKING_ALWAYS_ENABLED)
         }
 
         val selector = DefaultTrackSelector(context)
@@ -178,17 +176,6 @@ class NexusVideoPlayer(
             override fun onTracksChanged(tracks: Tracks) {
                 updateTracksInfo()
                 updateCodecInfo()
-            }
-        })
-
-        player.addAnalyticsListener(object : AnalyticsListener {
-            override fun onDecoderInitialized(
-                eventTime: AnalyticsListener.EventTime,
-                trackType: Int,
-                decoderName: String,
-                initializationElapsedRealtimeMs: Long
-            ) {
-                updateCodecInfo(decoderName = decoderName)
             }
         })
 
