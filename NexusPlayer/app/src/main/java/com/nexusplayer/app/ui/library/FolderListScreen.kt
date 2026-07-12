@@ -14,20 +14,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -66,86 +62,53 @@ fun FolderListScreen(
         return
     }
 
-    LazyVerticalGrid(
-        columns = GridCells.Adaptive(minSize = 160.dp),
-        contentPadding = PaddingValues(16.dp),
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+    LazyColumn(
+        contentPadding = PaddingValues(0.dp),
         modifier = modifier.fillMaxSize()
     ) {
         items(folders) { folder ->
             FolderCard(folder = folder, onClick = { onFolderClick(folder) })
+            Divider(color = Color(0xFF1E293B), thickness = 1.dp)
         }
     }
 }
 
 @Composable
 fun FolderCard(folder: FolderInfo, onClick: () -> Unit) {
-    Box(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
-            .background(
-                brush = Brush.linearGradient(
-                    colors = listOf(Color(0xFF1E293B), Color(0xFF0F172A))
-                )
-            )
             .clickable { onClick() }
-            .padding(16.dp)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Column {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(46.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Color(0xFF3B82F6).copy(alpha = 0.2f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Folder,
-                        contentDescription = folder.folderName,
-                        tint = Color(0xFF60A5FA),
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Color(0xFF334155).copy(alpha = 0.6f))
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                ) {
-                    Text(
-                        text = "${folder.videoCount} videos",
-                        color = Color.White,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
+        Icon(
+            imageVector = Icons.Default.Folder,
+            contentDescription = folder.folderName,
+            tint = Color(0xFF60A5FA),
+            modifier = Modifier.size(40.dp)
+        )
+        
+        Spacer(modifier = Modifier.width(16.dp))
 
-            Spacer(modifier = Modifier.height(16.dp))
-
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = folder.folderName,
                 color = Color.White,
                 fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(2.dp))
 
             Text(
-                text = VideoItem.formatDuration(folder.totalDurationMs),
+                text = "${folder.videoCount} videos  |  ${VideoItem.formatDuration(folder.totalDurationMs)}",
                 color = Color(0xFF94A3B8),
-                fontSize = 12.sp
+                fontSize = 13.sp
             )
         }
     }
 }
+
