@@ -151,7 +151,8 @@ class MediaRepositoryImpl(
                 )
             )
         }
-        folders.sortedByDescending { it.videoCount }
+        folders.sortByDescending { it.videoCount }
+        return@withContext folders
     }
 
     override suspend fun getVideosInFolder(folderPath: String): List<VideoItem> = withContext(Dispatchers.IO) {

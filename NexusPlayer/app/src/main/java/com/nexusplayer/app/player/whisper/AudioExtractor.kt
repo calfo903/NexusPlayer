@@ -8,6 +8,7 @@ import com.nexusplayer.app.domain.model.VideoItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import java.io.File
@@ -136,7 +137,7 @@ class AudioExtractor(private val context: Context) {
         return if (f.exists() && f.length() > 100) f else null
     }
 
-    private suspend fun simulateFastExtraction(targetFile: File, durationMs: Long) {
+    private suspend fun FlowCollector<WhisperGenerationState.ExtractingAudio>.simulateFastExtraction(targetFile: File, durationMs: Long) {
         val steps = 5
         for (i in 1..steps) {
             delay(180)

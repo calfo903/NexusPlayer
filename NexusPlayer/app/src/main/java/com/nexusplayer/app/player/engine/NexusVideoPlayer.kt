@@ -262,15 +262,17 @@ class NexusVideoPlayer(
         val player = exoPlayer ?: return
         if (player.isPlaying) player.pause()
         // Standard video frame at ~30fps is ~33.3ms, 60fps is ~16.6ms
-        player.seekTo(player.currentPosition + 33L)
-        _currentPositionMs.value = player.currentPosition
+        val target = (player.currentPosition + 33L).coerceAtMost(player.duration.coerceAtLeast(0L))
+        player.seekTo(target)
+        _currentPositionMs.value = target
     }
 
     fun stepFrameBackward() {
         val player = exoPlayer ?: return
         if (player.isPlaying) player.pause()
-        player.seekTo((player.currentPosition - 33L).coerceAtLeast(0L))
-        _currentPositionMs.value = player.currentPosition
+        val target = (player.currentPosition - 33L).coerceAtLeast(0L)
+        player.seekTo(target)
+        _currentPositionMs.value = target
     }
 
     fun setPlaybackSpeed(speed: Float) {
@@ -297,7 +299,7 @@ class NexusVideoPlayer(
             if (group.type == C.TRACK_TYPE_AUDIO) {
                 for (i in 0 until group.length) {
                     val format = group.getTrackFormat(i)
-                    if (format.id ?: "${format.language}_$i" == trackId) {
+                    if ((format.id ?: "${format.language}_$i") == trackId) {
                         val override = TrackSelectionOverride(group.mediaTrackGroup, i)
                         selector.parameters = selector.buildUponParameters()
                             .setOverrideForType(override)
