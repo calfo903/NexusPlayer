@@ -1,6 +1,7 @@
 package com.nexusplayer.app.player.engine
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.media.audiofx.BassBoost
 import android.media.audiofx.Equalizer
 import android.media.audiofx.LoudnessEnhancer
@@ -41,6 +42,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import androidx.media3.ui.PlayerView
 import java.io.File
 
 /**
@@ -55,6 +57,7 @@ class NexusVideoPlayer(
 ) {
     private var exoPlayer: ExoPlayer? = null
     private var trackSelector: DefaultTrackSelector? = null
+    private var playerView: PlayerView? = null
 
     // Audio Effects (VLC Style Equalizer Engine & 200% Loudness Enhancer)
     private var equalizer: Equalizer? = null
@@ -107,6 +110,33 @@ class NexusVideoPlayer(
     private val _activeSubtitleText = MutableStateFlow<String?>("")
     val activeSubtitleText: StateFlow<String?> = _activeSubtitleText.asStateFlow()
 
+    // A-B Repeat (Loop Mode)
+    private val _abRepeatEnabled = MutableStateFlow(false)
+    val abRepeatEnabled: StateFlow<Boolean> = _abRepeatEnabled.asStateFlow()
+
+    private val _abRepeatA = MutableStateFlow<Long?>(null)
+    val abRepeatA: StateFlow<Long?> = _abRepeatA.asStateFlow()
+
+    private val _abRepeatB = MutableStateFlow<Long?>(null)
+    val abRepeatB: StateFlow<Long?> = _abRepeatB.asStateFlow()
+
+    // Night Mode / Dialog Boost
+    private val _nightModeEnabled = MutableStateFlow(false)
+    val nightModeEnabled: StateFlow<Boolean> = _nightModeEnabled.asStateFlow()
+
+    private var originalBandLevels: Map<Short, Short>? = null
+
+    // Audio-Only Mode
+    private val _audioOnlyMode = MutableStateFlow(false)
+    val audioOnlyMode: StateFlow<Boolean> = _audioOnlyMode.asStateFlow()
+
+    // Playback Queue
+    private val _playQueue = MutableStateFlow<List<VideoItem>>(emptyList())
+    val playQueue: StateFlow<List<VideoItem>> = _playQueue.asStateFlow()
+
+    private val _currentQueueIndex = MutableStateFlow(-1)
+    val currentQueueIndex: StateFlow<Int> = _currentQueueIndex.asStateFlow()
+
     private var progressJob: Job? = null
     private var currentVideoItem: VideoItem? = null
 
@@ -157,8 +187,17 @@ class NexusVideoPlayer(
                         initAudioEffects(player.audioSessionId)
                     }
                     Player.STATE_ENDED -> {
-                        _isPlaying.value = false
-                        stopProgressLoop()
+                        val a = _abRepeatA.value
+                        val b = _abRepeatB.value
+                        if (_abRepeatEnabled.value && a != null && b != null) {
+                            player.seekTo(a)
+                            player.playWhenReady = true
+                            _isPlaying.value = true
+                            startProgressLoop()
+                        } else {
+                            _isPlaying.value = false
+                            stopProgressLoop()
+                        }
                     }
                     else -> {}
                 }
@@ -551,9 +590,17 @@ class NexusVideoPlayer(
         progressJob = scope.launch(Dispatchers.Main) {
             while (true) {
                 exoPlayer?.let { player ->
-                    _currentPositionMs.value = player.currentPosition
+                    val pos = player.currentPosition
+                    _currentPositionMs.value = pos
                     _bufferedPositionMs.value = player.bufferedPosition
                     _durationMs.value = player.duration.coerceAtLeast(0L)
+
+                    val a = _abRepeatA.value
+                    val b = _abRepeatB.value
+                    if (_abRepeatEnabled.value && b != null && a != null && pos >= b) {
+                        player.seekTo(a)
+                        _currentPositionMs.value = a
+                    }
                 }
                 delay(250)
             }
@@ -577,5 +624,150 @@ class NexusVideoPlayer(
         }
         exoPlayer?.release()
         exoPlayer = null
+    }
+
+    // --- A-B Repeat (Loop Mode) ---
+
+    fun setAbPointA() {
+        val player = exoPlayer ?: return
+        _abRepeatA.value = player.currentPosition
+    }
+
+    fun setAbPointB() {
+        val player = exoPlayer ?: return
+        val pos = player.currentPosition
+        val a = _abRepeatA.value
+        if (a == null || pos > a) {
+            _abRepeatB.value = pos
+        }
+    }
+
+    fun toggleAbRepeat() {
+        if (_abRepeatEnabled.value) {
+            _abRepeatEnabled.value = false
+        } else {
+            if (_abRepeatA.value == null) {
+                val player = exoPlayer
+                if (player != null) {
+                    _abRepeatA.value = player.currentPosition
+                }
+            }
+            _abRepeatEnabled.value = true
+        }
+    }
+
+    fun clearAbRepeat() {
+        _abRepeatA.value = null
+        _abRepeatB.value = null
+        _abRepeatEnabled.value = false
+    }
+
+    // --- Night Mode / Dialog Boost ---
+
+    fun setNightModeEnabled(enabled: Boolean) {
+        val eq = equalizer ?: return
+        try {
+            if (enabled && !_nightModeEnabled.value) {
+                // Store original band levels before modification
+                val saved = mutableMapOf<Short, Short>()
+                for (i in 0 until eq.numberOfBands) {
+                    val index = i.toShort()
+                    saved[index] = eq.getBandLevel(index)
+                }
+                originalBandLevels = saved
+
+                // Boost center frequencies in the 1kHz-4kHz dialog range (~6dB = 600mB)
+                val boostLevel: Short = 600
+                for (i in 0 until eq.numberOfBands) {
+                    val index = i.toShort()
+                    val centerFreqHz = eq.getCenterFreq(index) / 1000
+                    if (centerFreqHz in 1000..4000) {
+                        val currentLevel = eq.getBandLevel(index)
+                        val boosted = (currentLevel + boostLevel).toShort().coerceAtMost(eq.bandLevelRange[1])
+                        eq.setBandLevel(index, boosted)
+                    }
+                }
+
+                val updatedBands = _equalizerState.value.bands.map { band ->
+                    val newLevel = eq.getBandLevel(band.index)
+                    band.copy(currentLevelMillibels = newLevel)
+                }
+                _equalizerState.value = _equalizerState.value.copy(bands = updatedBands)
+                _nightModeEnabled.value = true
+
+            } else if (!enabled && _nightModeEnabled.value) {
+                // Restore original band levels
+                val original = originalBandLevels
+                if (original != null) {
+                    for ((index, level) in original) {
+                        eq.setBandLevel(index, level)
+                    }
+                }
+
+                val updatedBands = _equalizerState.value.bands.map { band ->
+                    val restoredLevel = original?.get(band.index) ?: band.currentLevelMillibels
+                    band.copy(currentLevelMillibels = restoredLevel)
+                }
+                _equalizerState.value = _equalizerState.value.copy(bands = updatedBands)
+                originalBandLevels = null
+                _nightModeEnabled.value = false
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    // --- Audio-Only Mode ---
+
+    fun setAudioOnlyMode(enabled: Boolean) {
+        _audioOnlyMode.value = enabled
+    }
+
+    // --- Frame Export ---
+
+    fun setPlayerView(view: PlayerView) {
+        playerView = view
+    }
+
+    fun captureCurrentFrame(): Bitmap? {
+        val view = playerView ?: return null
+        return try {
+            val bitmap = android.graphics.Bitmap.createBitmap(view.width.coerceAtLeast(1), view.height.coerceAtLeast(1), android.graphics.Bitmap.Config.ARGB_8888)
+            val canvas = android.graphics.Canvas(bitmap)
+            view.draw(canvas)
+            bitmap
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    // --- Playback Queue ---
+
+    fun setPlayQueue(items: List<VideoItem>, startIndex: Int = 0) {
+        _playQueue.value = items
+        _currentQueueIndex.value = startIndex.coerceIn(-1, items.size - 1)
+    }
+
+    fun playNextInQueue(): VideoItem? {
+        val queue = _playQueue.value
+        val currentIdx = _currentQueueIndex.value
+        val nextIdx = currentIdx + 1
+        if (nextIdx >= queue.size) return null
+        _currentQueueIndex.value = nextIdx
+        val item = queue[nextIdx]
+        prepareAndPlay(item)
+        return item
+    }
+
+    fun playPreviousInQueue(): VideoItem? {
+        val queue = _playQueue.value
+        val currentIdx = _currentQueueIndex.value
+        val prevIdx = currentIdx - 1
+        if (prevIdx < 0) return null
+        _currentQueueIndex.value = prevIdx
+        val item = queue[prevIdx]
+        prepareAndPlay(item)
+        return item
     }
 }

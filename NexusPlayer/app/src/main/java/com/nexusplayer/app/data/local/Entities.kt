@@ -46,3 +46,32 @@ data class PlaylistVideoCrossRef(
     val videoUriString: String,
     val orderIndex: Int
 )
+
+@Entity(tableName = "watch_analytics")
+data class WatchAnalyticsEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val videoUriString: String,
+    val videoTitle: String,
+    val totalWatchTimeMs: Long = 0L,
+    val sessionCount: Int = 0,
+    val lastWatchedTimestamp: Long = System.currentTimeMillis(),
+    val totalCompletionPercentage: Float = 0f,
+    val averagePlaybackSpeed: Float = 1.0f
+)
+
+@Entity(tableName = "video_tags")
+data class VideoTagEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val videoUriString: String,
+    val tag: String,
+    val dateAdded: Long = System.currentTimeMillis()
+)
+
+@Entity(
+    tableName = "video_tags_cross_ref",
+    primaryKeys = ["videoUriString", "tagId"]
+)
+data class VideoTagCrossRef(
+    val videoUriString: String,
+    val tagId: Long
+)

@@ -10,15 +10,20 @@ import androidx.room.RoomDatabase
         VideoResumeEntity::class,
         BookmarkEntity::class,
         PlaylistEntity::class,
-        PlaylistVideoCrossRef::class
+        PlaylistVideoCrossRef::class,
+        WatchAnalyticsEntity::class,
+        VideoTagEntity::class,
+        VideoTagCrossRef::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class NexusDatabase : RoomDatabase() {
     abstract fun videoResumeDao(): VideoResumeDao
     abstract fun bookmarkDao(): BookmarkDao
     abstract fun playlistDao(): PlaylistDao
+    abstract fun watchAnalyticsDao(): WatchAnalyticsDao
+    abstract fun videoTagDao(): VideoTagDao
 
     companion object {
         @Volatile

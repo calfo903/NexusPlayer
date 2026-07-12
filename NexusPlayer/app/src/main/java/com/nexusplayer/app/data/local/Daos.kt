@@ -59,3 +59,51 @@ interface PlaylistDao {
     @Query("SELECT videoUriString FROM playlist_videos WHERE playlistId = :playlistId ORDER BY orderIndex ASC")
     suspend fun getVideoUrisForPlaylist(playlistId: Long): List<String>
 }
+
+@Dao
+interface WatchAnalyticsDao {
+    @Query("SELECT * FROM watch_analytics WHERE videoUriString = :uriString LIMIT 1")
+    suspend fun getAnalytics(uriString: String): WatchAnalyticsEntity?
+
+    @Query("SELECT * FROM watch_analytics ORDER BY lastWatchedTimestamp DESC")
+    fun getAllAnalyticsFlow(): Flow<List<WatchAnalyticsEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAnalytics(entity: WatchAnalyticsEntity)
+
+    @Query("SELECT SUM(totalWatchTimeMs) FROM watch_analytics")
+    suspend fun getTotalWatchTimeMs(): Long?
+
+    @Query("SELECT COUNT(*) FROM watch_analytics")
+    suspend fun getTotalVideosWatched(): Int
+
+    @Query("DELETE FROM watch_analytics")
+    suspend fun clearAll()
+}
+
+@Dao
+interface VideoTagDao {
+    @Query("SELECT * FROM video_tags ORDER BY tag ASC")
+    fun getAllTagsFlow(): Flow<List<VideoTagEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTag(tag: VideoTagEntity): Long
+
+    @Query("SELECT * FROM video_tags WHERE videoUriString = :uriString")
+    suspend fun getTagsForVideo(uriString: String): List<VideoTagEntity>
+
+    @Query("SELECT vt.* FROM video_tags vt INNER JOIN video_tags_cross_ref ref ON vt.id = ref.tagId WHERE ref.videoUriString = :uriString")
+    fun getTagsForVideoFlow(uriString: String): Flow<List<VideoTagEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun addTagToVideo(crossRef: VideoTagCrossRef)
+
+    @Query("DELETE FROM video_tags_cross_ref WHERE videoUriString = :uriString AND tagId = :tagId")
+    suspend fun removeTagFromVideo(uriString: String, tagId: Long)
+
+    @Query("DELETE FROM video_tags WHERE id = :tagId")
+    suspend fun deleteTag(tagId: Long)
+
+    @Query("SELECT ref.videoUriString FROM video_tags_cross_ref ref INNER JOIN video_tags t ON ref.tagId = t.id WHERE t.tag = :tag")
+    suspend fun getVideoUrisWithTag(tag: String): List<String>
+}
