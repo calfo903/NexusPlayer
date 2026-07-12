@@ -120,11 +120,6 @@ class MediaRepositoryImpl(
             e.printStackTrace()
         }
 
-        // If local storage is empty or testing inside mock environment, inject rich sample videos
-        if (videoList.isEmpty()) {
-            return@withContext getDemoHighQualityVideos()
-        }
-
         return@withContext videoList
     }
 

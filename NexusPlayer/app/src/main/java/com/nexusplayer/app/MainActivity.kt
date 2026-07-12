@@ -36,12 +36,14 @@ import java.io.File
 
 class MainActivity : ComponentActivity() {
 
+    private val _reloadTrigger = kotlinx.coroutines.flow.MutableStateFlow(0)
     private var playerEngine: NexusVideoPlayer? = null
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         // Reload library if granted
+        _reloadTrigger.value++
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -65,7 +67,7 @@ class MainActivity : ComponentActivity() {
                 p
             }
 
-            // Load media library on launch
+            // Load media library on launch and when permissions change
             LaunchedEffect(Unit) {
                 val db = NexusDatabase.getInstance(context)
                 val repo = MediaRepositoryImpl(
@@ -75,8 +77,12 @@ class MainActivity : ComponentActivity() {
                     playlistDao = db.playlistDao()
                 )
 
-                videos = repo.getAllVideos()
-                folders = repo.getFolders()
+                launch {
+                    _reloadTrigger.collect {
+                        videos = repo.getAllVideos()
+                        folders = repo.getFolders()
+                    }
+                }
 
                 // Listen to playlists flow
                 launch {
